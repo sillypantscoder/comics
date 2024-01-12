@@ -11,6 +11,24 @@ def log(info: str):
 	f.write("\n")
 	f.close()
 
+def set_left(name: str, info: dict[str, str | int]):
+	f = open("left.json", "r")
+	left = json.loads(f.read())
+	f.close()
+	left[name] = info
+	f = open("left.json", "w")
+	f.write(json.dumps(left))
+	f.close()
+
+def get_left(name: str) -> "Optional[dict[str, str | int]]":
+	f = open("left.json", "r")
+	left = json.loads(f.read())
+	f.close()
+	if name in left.keys():
+		return Optional(left[name])
+	else:
+		return Optional()
+
 T = typing.TypeVar('T')
 R = typing.TypeVar('R')
 class Optional(typing.Generic[T]):

@@ -4,6 +4,7 @@ import comics
 import os
 from urllib.parse import unquote
 import base64
+import datetime
 
 hostName = "0.0.0.0"
 serverPort = 7963
@@ -62,8 +63,37 @@ def findComicNamesWithAuthor(name: str) -> list[str]:
 			comic.comicname.runWith(ta, None)
 	return v
 
+def findAllComicNames() -> list[str]:
+	v: list[str] = []
+	for filename in os.listdir("comics"):
+		comic = comics.Comic.load(read_file("comics/" + filename))
+		valid = comic.comicname.runWith(lambda x: x not in v, False)
+		if valid:
+			comic.comicname.runWith(lambda x: v.append(x), None)
+	return v
+
+def findAllAuthors() -> list[str]:
+	v: list[str] = []
+	for filename in os.listdir("comics"):
+		comic = comics.Comic.load(read_file("comics/" + filename))
+		valid = comic.author.runWith(lambda x: x not in v, False)
+		if valid:
+			comic.author.runWith(lambda x: v.append(x), None)
+	return v
+
 def get(path: str) -> HttpResponse:
-	if path.startswith("/page/"):
+	if path == "/":
+		return {
+			"status": 200,
+			"headers": {
+				"Content-Type": "text/html; charset=utf-8"
+			},
+			"content": read_file("index.html").
+				replace("{{comics}}", "\n\t".join([f"<p><a href='/comic/{n}'>{n}</a></p>" for n in findAllComicNames()])).
+				replace("{{authors}}", "\n\t".join([f"<p><a href='/author/{n}'>{n}</a></p>" for n in findAllAuthors()])).
+				encode("UTF-8")
+		}
+	elif path.startswith("/page/"):
 		if os.path.isfile("comics/" + path[6:] + ".json"):
 			comic = comics.Comic.load(read_file("comics/" + path[6:] + ".json"))
 			nextC, prevC = findNextAndPrev(comic)
@@ -88,9 +118,9 @@ def get(path: str) -> HttpResponse:
 			return {
 				"status": 404,
 				"headers": {
-					"Content-Type": "text/html"
+					"Content-Type": "text/plain"
 				},
-				"content": b""
+				"content": b"Page Not Found"
 			}
 	elif path.startswith("/comic/"):
 		listname = unquote(path[7:])
@@ -119,14 +149,15 @@ def get(path: str) -> HttpResponse:
 				replace("{{name}}", listname).
 				replace("{{comics}}", "\n\t".join([f"<p><a href='/comic/{x}'>{x}</a></p>" for x in pages])).
 				encode("UTF-8")
+			# TODO: Additional pages by this author
 		}
 	else: # 404 page
 		return {
 			"status": 404,
 			"headers": {
-				"Content-Type": "text/html"
+				"Content-Type": "text/plain"
 			},
-			"content": b""
+			"content": b"404 Not Found"
 		}
 
 def post(path: str, body: bytes) -> HttpResponse:
@@ -136,14 +167,16 @@ def post(path: str, body: bytes) -> HttpResponse:
 		return {
 			"status": 404,
 			"headers": {
-				"Content-Type": "text/html"
+				"Content-Type": "text/plain"
 			},
-			"content": b""
+			"content": b"404 Not Found"
 		}
 
 class MyServer(BaseHTTPRequestHandler):
 	def do_GET(self):
 		global running
+		started = datetime.datetime.now()
+		print("started")
 		res = get(self.path)
 		self.send_response(res["status"])
 		for h in res["headers"]:
@@ -151,6 +184,9 @@ class MyServer(BaseHTTPRequestHandler):
 		self.end_headers()
 		c = res["content"]
 		self.wfile.write(c)
+		ended = datetime.datetime.now()
+		dur = (ended - started).total_seconds()
+		print(f"ended; took {dur}s")
 	def do_POST(self):
 		res = post(self.path, self.rfile.read(int(self.headers["Content-Length"])))
 		self.send_response(res["status"])

@@ -5,8 +5,12 @@ import comics
 number = 1
 name = "kris-kapplesauce"
 
-# number = 214
-# name = "kris-shoes"
+def loadLeft(info: dict[str, str | int]):
+	global number
+	global name
+	number = info["number"]
+	name = info["name"]
+comics.get_left("explosm").ifPresent(loadLeft)
 
 previous = [name]
 
@@ -43,3 +47,7 @@ while True:
 	name = next + ""
 	if name in previous: exit()
 	previous = [*previous[-5:], name]
+	comics.set_left("explosm", {
+		"number": number,
+		"name": name
+	})
